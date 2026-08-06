@@ -158,7 +158,10 @@ with switches_col:
             "Estimar ingresos con Page Views",
             value=False,
             disabled=demo_mode,
-            help="Puede tardar más y requiere permisos adicionales en Canvas.",
+            help=(
+                "Indicador complementario. Ahora se consulta en paralelo, pero puede seguir "
+                "dependiendo de permisos y límites de Canvas. Déjelo apagado para el análisis más rápido."
+            ),
         )
     with opt2:
         include_zero_point = st.toggle(
@@ -194,6 +197,20 @@ st.caption(
     "La meta acumulada usa primero el Plan semanal del curso configurado en la sesión o guardado en Supabase. "
     "Si no hay actividades asignadas a semanas, se mantiene la distribución uniforme anterior solo como respaldo temporal."
 )
+
+if include_page_views:
+    estimated_students = 0
+    if section_id:
+        selected_section = next((item for item in sections if str(item.get("id")) == str(section_id)), {})
+        try:
+            estimated_students = int(selected_section.get("total_students") or 0)
+        except (TypeError, ValueError):
+            estimated_students = 0
+    st.warning(
+        "Page Views está activado. La app continuará aunque Canvas no permita consultar algunos estudiantes. "
+        + (f"La sección tiene aproximadamente {estimated_students} estudiantes; " if estimated_students else "")
+        + "para un corte inmediato puede apagar esta opción."
+    )
 
 if st.button("Ejecutar análisis semanal", type="primary", width="stretch"):
     progress = st.progress(0, text="Preparando análisis...")

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Iterable, Sequence
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin
 
 import requests
@@ -298,13 +299,21 @@ class CanvasService:
         user_id: int | str,
         start_time: datetime,
         end_time: datetime,
+        *,
+        max_pages: int = 5,
     ) -> list[dict[str, Any]]:
         params = {
             "per_page": 100,
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
         }
-        return self.get_paginated(f"/api/v1/users/{user_id}/page_views", params=params, max_pages=25)
+        # Para una ventana semanal, 5 páginas (hasta 500 vistas) son suficientes
+        # para estimar sesiones sin dejar el análisis bloqueado durante minutos.
+        return self.get_paginated(
+            f"/api/v1/users/{user_id}/page_views",
+            params=params,
+            max_pages=max_pages,
+        )
 
     def send_message(
         self,
@@ -367,18 +376,63 @@ class CanvasService:
         end_time: datetime,
         course_id: int | str,
         progress_callback: Callable[[int, int], None] | None = None,
+        *,
+        max_workers: int = 8,
     ) -> tuple[dict[str, int | None], dict[str, str]]:
-        """Consulta sesiones una a una; conserva errores de permiso por estudiante."""
+        """Estima sesiones en paralelo y continúa aunque Canvas niegue Page Views.
+
+        La versión anterior hacía una consulta secuencial por estudiante. En secciones
+        grandes esto podía tardar decenas de minutos y provocar que Streamlit reiniciara
+        la ejecución antes de mostrar resultados.
+        """
         sessions: dict[str, int | None] = {}
         errors: dict[str, str] = {}
-        total = len(user_ids)
-        for index, user_id in enumerate(user_ids, start=1):
+        normalized_ids = [str(value) for value in user_ids if str(value)]
+        total = len(normalized_ids)
+        if not total:
+            return sessions, errors
+
+        workers = max(1, min(int(max_workers), total))
+
+        def fetch_one(user_id: str) -> tuple[str, int | None, str | None]:
+            # Cada hilo usa su propia sesión HTTP, con espera corta y sin una cadena
+            # larga de reintentos. Page Views es un indicador complementario: si falla,
+            # el análisis principal debe continuar.
+            client = CanvasService(self.base_url, self.token, timeout=(8, 20))
+            adapter = HTTPAdapter(
+                max_retries=Retry(
+                    total=1, connect=1, read=1, status=1, backoff_factor=0.25,
+                    status_forcelist=(429, 500, 502, 503, 504),
+                    allowed_methods=frozenset({"GET"}),
+                    respect_retry_after_header=True,
+                    raise_on_status=False,
+                ),
+                pool_connections=2,
+                pool_maxsize=2,
+            )
+            client.session.mount("https://", adapter)
+            client.session.mount("http://", adapter)
             try:
-                views = self.list_page_views(user_id, start_time, end_time)
-                sessions[str(user_id)] = self.count_sessions(views, course_id=course_id)
+                views = client.list_page_views(user_id, start_time, end_time, max_pages=5)
+                return user_id, client.count_sessions(views, course_id=course_id), None
             except CanvasAPIError as exc:
-                sessions[str(user_id)] = None
-                errors[str(user_id)] = str(exc)
-            if progress_callback:
-                progress_callback(index, total)
+                return user_id, None, str(exc)
+            finally:
+                client.session.close()
+
+        completed = 0
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="canvas-pageviews") as executor:
+            futures = {executor.submit(fetch_one, user_id): user_id for user_id in normalized_ids}
+            for future in as_completed(futures):
+                user_id = futures[future]
+                try:
+                    resolved_id, count, error = future.result()
+                except Exception as exc:  # Page Views nunca debe abortar el análisis.
+                    resolved_id, count, error = user_id, None, f"Consulta de Page Views omitida: {exc}"
+                sessions[resolved_id] = count
+                if error:
+                    errors[resolved_id] = error
+                completed += 1
+                if progress_callback:
+                    progress_callback(completed, total)
         return sessions, errors

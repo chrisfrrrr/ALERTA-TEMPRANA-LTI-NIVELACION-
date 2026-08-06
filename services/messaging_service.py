@@ -33,9 +33,8 @@ def _pending_text(row: dict[str, Any]) -> str:
         return ""
     if isinstance(pending, str):
         return pending
-    quoted = ", ".join(f'“{item}”' for item in pending[:6])
-    suffix = "" if len(pending) <= 6 else f" y {len(pending) - 6} actividad(es) adicional(es)"
-    return quoted + suffix
+    quoted = ", ".join(f'“{item}”' for item in pending)
+    return quoted
 
 
 def generate_message(

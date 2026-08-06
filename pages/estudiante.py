@@ -79,6 +79,20 @@ with summary_tab:
     for reason in row.get("reasons") or []:
         st.markdown(f"- {reason}")
 
+    pending_full = row.get("pending_assignments") or []
+    if isinstance(pending_full, str):
+        pending_full = [item.strip() for item in pending_full.split(",") if item.strip()]
+    if pending_full:
+        st.markdown(f"#### Detalle completo de actividades pendientes ({len(pending_full)})")
+        st.caption("Se muestran todas las actividades esperadas que el estudiante aún no ha completado.")
+        pending_df = pd.DataFrame(
+            {
+                "No.": range(1, len(pending_full) + 1),
+                "Actividad pendiente": pending_full,
+            }
+        )
+        st.dataframe(pending_df, width="stretch", hide_index=True, height=min(520, 42 + 35 * len(pending_full)))
+
 with activities_tab:
     assignments = pd.DataFrame(detail.get("assignments", []))
     if assignments.empty:

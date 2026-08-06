@@ -188,9 +188,60 @@ def create_individual_referral(row: dict[str, Any], academic_advisor: str) -> by
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.oddFooter.center.text = "AVE — Seguimiento académico y bienestar"
 
+    _add_pending_detail_sheet(wb, [row], "Actividades pendientes")
+
     buffer = io.BytesIO()
     wb.save(buffer)
     return buffer.getvalue()
+
+
+def _pending_items(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, tuple):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if _is_missing(value):
+        return []
+    text = str(value).strip()
+    return [text] if text else []
+
+
+def _add_pending_detail_sheet(wb: Workbook, rows: list[dict[str, Any]], title: str = "Detalle pendientes") -> None:
+    ws = wb.create_sheet(title[:31])
+    headers = ["Carné", "Estudiante", "Curso", "Sección", "Semana", "No.", "Actividad pendiente"]
+    for col, header in enumerate(headers, start=1):
+        cell = ws.cell(1, col, header)
+        cell.font = Font(bold=True, color=WHITE)
+        cell.fill = PatternFill("solid", fgColor=BLUE)
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = BORDER
+
+    current = 2
+    for row in rows:
+        pending = _pending_items(row.get("pending_assignments"))
+        if not pending:
+            ws.cell(current, 1, row.get("carne"))
+            ws.cell(current, 2, row.get("student_name"))
+            ws.cell(current, 7, "Sin actividades pendientes registradas")
+            current += 1
+            continue
+        for index, activity in enumerate(pending, start=1):
+            values = [
+                row.get("carne"), row.get("student_name"), row.get("course_name"),
+                row.get("section_name"), row.get("week_number"), index, activity,
+            ]
+            for col, value in enumerate(values, start=1):
+                cell = ws.cell(current, col, value)
+                cell.border = BORDER
+                cell.alignment = Alignment(vertical="top", wrap_text=(col == 7))
+            current += 1
+
+    widths = [14, 32, 34, 22, 10, 8, 70]
+    for idx, width in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(idx)].width = width
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:G{max(1, current - 1)}"
+    ws.sheet_view.showGridLines = False
 
 
 def create_consolidated_referrals(group: pd.DataFrame, advisor_name: str, academic_advisor: str) -> bytes:
@@ -246,7 +297,7 @@ def create_consolidated_referrals(group: pd.DataFrame, advisor_name: str, academ
             row.get("completed_activities"),
             row.get("average_grade"),
             row.get("inactivity_hours"),
-            build_referral_reason(row)[:500],
+            build_referral_reason(row),
         ]
         for column, value in enumerate(values, start=1):
             cell = ws.cell(row_number, column, value)
@@ -278,6 +329,8 @@ def create_consolidated_referrals(group: pd.DataFrame, advisor_name: str, academ
     ws.page_setup.orientation = "landscape"
     ws.page_setup.fitToWidth = 1
     ws.sheet_properties.pageSetUpPr.fitToPage = True
+
+    _add_pending_detail_sheet(wb, group.to_dict(orient="records"), "Detalle pendientes")
 
     buffer = io.BytesIO()
     wb.save(buffer)

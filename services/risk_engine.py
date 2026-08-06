@@ -263,7 +263,6 @@ def build_reasons(
         if indicator.available and indicator.risk in {"Moderado", "Alto"}:
             reasons.append(indicator.detail)
     if pending_assignments:
-        names = ", ".join(f'“{name}”' for name in pending_assignments[:8])
-        suffix = "" if len(pending_assignments) <= 8 else f" y {len(pending_assignments) - 8} más"
-        reasons.append(f"Actividades esperadas pendientes: {names}{suffix}.")
+        names = ", ".join(f'“{name}”' for name in pending_assignments)
+        reasons.append(f"Actividades esperadas pendientes ({len(pending_assignments)}): {names}.")
     return reasons or ["Mantiene los indicadores dentro de los parámetros esperados."]
