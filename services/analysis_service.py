@@ -262,12 +262,40 @@ class AnalysisService:
 
     @staticmethod
     def _is_completed(submission: dict[str, Any] | None) -> bool:
+        """Determina si existe evidencia real de entrega/completación.
+
+        Canvas puede devolver ``workflow_state=graded`` cuando un docente coloca
+        manualmente una calificación (por ejemplo 0) a una actividad que el
+        estudiante nunca entregó. Ese estado por sí solo NO debe contarse como
+        actividad completada. La calificación se conserva para el promedio, pero
+        el avance y el riesgo de actividades requieren evidencia de entrega.
+        """
         if not submission:
             return False
         if submission.get("excused") is True:
             return True
-        state = str(submission.get("workflow_state") or "").lower()
-        return bool(submission.get("submitted_at")) or state in {"submitted", "graded", "pending_review"}
+
+        # Canvas expone explícitamente el indicador missing para entregas ausentes.
+        # Debe prevalecer incluso si workflow_state aparece como "graded".
+        if submission.get("missing") is True:
+            return False
+
+        # La evidencia más confiable es una fecha real de entrega.
+        if submission.get("submitted_at"):
+            return True
+
+        state = str(submission.get("workflow_state") or "").strip().lower()
+        if state in {"submitted", "pending_review"}:
+            return True
+
+        # Para algunos tipos de actividades Canvas puede registrar un intento sin
+        # fecha de entrega. Solo se acepta como completada si existe un intento real
+        # y no está marcada como missing. Un simple estado "graded" no basta.
+        try:
+            attempt = int(submission.get("attempt") or 0)
+        except (TypeError, ValueError):
+            attempt = 0
+        return attempt > 0 and state == "graded"
 
     @staticmethod
     def _grade_from_enrollment(enrollment: dict[str, Any]) -> float | None:
