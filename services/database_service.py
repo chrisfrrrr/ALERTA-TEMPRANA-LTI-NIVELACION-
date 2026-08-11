@@ -33,6 +33,53 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
+
+
+INTEGER_SNAPSHOT_FIELDS = {
+    "week_number",
+    "total_weeks",
+    "total_activities",
+    "expected_activities",
+    "completed_activities",
+    "completed_expected",
+    "pending_count",
+    "late_count",
+    "early_count",
+}
+
+NULLABLE_INTEGER_SNAPSHOT_FIELDS = {"weekly_sessions"}
+
+
+def _coerce_integer(value: Any, *, default: int | None = 0) -> int | None:
+    """Convierte valores numéricos de Pandas/Canvas a enteros seguros para PostgreSQL.
+
+    Acepta 0, 0.0, "0.0", numpy scalars y cadenas numéricas. Los valores
+    vacíos/NaN se convierten al valor por defecto indicado.
+    """
+    if value is None or value is pd.NA:
+        return default
+    if isinstance(value, str):
+        value = value.strip()
+        if not value or value.lower() in {"nan", "none", "null", "nat"}:
+            return default
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+    if math.isnan(numeric) or math.isinf(numeric):
+        return default
+    return int(numeric)
+
+
+def _normalize_snapshot_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Normaliza tipos antes de insertar un snapshot en Supabase/PostgreSQL."""
+    normalized = dict(record)
+    for field in INTEGER_SNAPSHOT_FIELDS:
+        normalized[field] = _coerce_integer(normalized.get(field), default=0)
+    for field in NULLABLE_INTEGER_SNAPSHOT_FIELDS:
+        normalized[field] = _coerce_integer(normalized.get(field), default=None)
+    return _json_safe(normalized)
+
 def _records(df_or_records: pd.DataFrame | Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     if isinstance(df_or_records, pd.DataFrame):
         values = df_or_records.to_dict(orient="records")
@@ -200,7 +247,7 @@ class DatabaseService:
             record = {key: row.get(key) for key in snapshot_fields}
             record["analysis_run_id"] = run_id
             record["carne"] = str(record.get("carne") or "")
-            records.append(_json_safe(record))
+            records.append(_normalize_snapshot_record(record))
         try:
             for start in range(0, len(records), 250):
                 self.client.table("student_snapshots").insert(records[start : start + 250]).execute()
