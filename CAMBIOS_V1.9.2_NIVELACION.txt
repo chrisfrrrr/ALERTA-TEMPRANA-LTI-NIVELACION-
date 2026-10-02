@@ -1,0 +1,8 @@
+CAMBIOS V1.9.2 - PENDIENTES ACUMULADAS
+
+- Se corrigió la columna "Pendientes" del Excel general de derivaciones.
+- Ahora muestra las actividades esperadas hasta la semana seleccionada que el estudiante aún no ha completado.
+- La lógica corresponde a: Pendientes = Esperadas acumuladas hasta la semana - Completadas acumuladas esperadas.
+- Ejemplo: si en Semana 4 corresponden 24 actividades acumuladas y el estudiante ha completado 19, Pendientes = 5.
+- No se cuentan actividades de semanas futuras.
+- Se mantiene intacta la lógica de riesgo, notas, inactividad y derivaciones.

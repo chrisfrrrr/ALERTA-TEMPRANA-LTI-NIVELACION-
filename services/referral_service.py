@@ -296,7 +296,7 @@ def create_consolidated_referrals(group: pd.DataFrame, advisor_name: str, academ
             row.get("intervention_priority"),
             row.get("expected_activities"),
             row.get("completed_activities"),
-            row.get("current_week_pending_count", row.get("pending_count", 0)),
+            row.get("pending_count", 0),
             row.get("average_grade"),
             row.get("inactivity_hours"),
             build_referral_reason(row),
