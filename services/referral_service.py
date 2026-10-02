@@ -248,12 +248,12 @@ def create_consolidated_referrals(group: pd.DataFrame, advisor_name: str, academ
     wb = Workbook()
     ws = wb.active
     ws.title = "Listado general"
-    ws.merge_cells("A1:N1")
+    ws.merge_cells("A1:O1")
     ws["A1"] = f"DERIVACIONES PARA {advisor_name.upper()}"
     ws["A1"].font = Font(size=16, bold=True, color=WHITE)
     ws["A1"].fill = PatternFill("solid", fgColor=NAVY)
     ws["A1"].alignment = Alignment(horizontal="center")
-    ws.merge_cells("A2:N2")
+    ws.merge_cells("A2:O2")
     ws["A2"] = f"Asesor académico: {academic_advisor} | Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     ws["A2"].fill = PatternFill("solid", fgColor=LIGHT_BLUE)
     ws["A2"].alignment = Alignment(horizontal="center")
@@ -270,6 +270,7 @@ def create_consolidated_referrals(group: pd.DataFrame, advisor_name: str, academ
         "Prioridad",
         "Esperadas",
         "Completadas",
+        "Pendientes",
         "Promedio",
         "Inactividad (h)",
         "Razón resumida",
@@ -295,6 +296,7 @@ def create_consolidated_referrals(group: pd.DataFrame, advisor_name: str, academ
             row.get("intervention_priority"),
             row.get("expected_activities"),
             row.get("completed_activities"),
+            row.get("current_week_pending_count", row.get("pending_count", 0)),
             row.get("average_grade"),
             row.get("inactivity_hours"),
             build_referral_reason(row),
@@ -302,7 +304,7 @@ def create_consolidated_referrals(group: pd.DataFrame, advisor_name: str, academ
         for column, value in enumerate(values, start=1):
             cell = ws.cell(row_number, column, value)
             cell.border = BORDER
-            cell.alignment = Alignment(vertical="top", wrap_text=column in {2, 3, 4, 5, 6, 14})
+            cell.alignment = Alignment(vertical="top", wrap_text=column in {2, 3, 4, 5, 6, 15})
             if row.get("overall_risk") == "Alto":
                 cell.fill = PatternFill("solid", fgColor=LIGHT_RED)
             elif row.get("overall_risk") == "Moderado":
@@ -310,7 +312,7 @@ def create_consolidated_referrals(group: pd.DataFrame, advisor_name: str, academ
 
     end_row = header_row + len(group)
     if end_row >= header_row + 1:
-        table = Table(displayName="TablaDerivaciones", ref=f"A{header_row}:N{end_row}")
+        table = Table(displayName="TablaDerivaciones", ref=f"A{header_row}:O{end_row}")
         table.tableStyleInfo = TableStyleInfo(
             name="TableStyleMedium2",
             showFirstColumn=False,
@@ -320,11 +322,11 @@ def create_consolidated_referrals(group: pd.DataFrame, advisor_name: str, academ
         )
         ws.add_table(table)
 
-    widths = [12, 32, 30, 24, 30, 16, 10, 12, 14, 12, 13, 12, 16, 70]
+    widths = [12, 32, 30, 24, 30, 16, 10, 12, 14, 12, 13, 12, 12, 16, 70]
     for index, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(index)].width = width
     ws.freeze_panes = "A5"
-    ws.auto_filter.ref = f"A{header_row}:N{max(end_row, header_row)}"
+    ws.auto_filter.ref = f"A{header_row}:O{max(end_row, header_row)}"
     ws.sheet_view.showGridLines = False
     ws.page_setup.orientation = "landscape"
     ws.page_setup.fitToWidth = 1

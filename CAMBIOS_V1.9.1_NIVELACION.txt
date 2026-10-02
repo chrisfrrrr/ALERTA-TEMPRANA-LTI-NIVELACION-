@@ -1,0 +1,7 @@
+CAMBIO V1.9.1 - EXCEL DE DERIVACION
+
+- Se agregó la columna "Pendientes" inmediatamente después de "Completadas" en el Informe_general.xlsx de derivaciones.
+- "Pendientes" contabiliza únicamente las actividades asignadas a la semana seleccionada que el estudiante aún no ha completado.
+- No arrastra pendientes de semanas anteriores y no incluye actividades futuras.
+- Se mantiene intacta la lógica acumulada existente para Esperadas, Completadas y cálculo de riesgo.
+- Compatibilidad: cuando se procesa información histórica que no contiene el nuevo indicador semanal, se usa el conteo de pendientes existente como respaldo.

@@ -563,6 +563,26 @@ class AnalysisService:
                 if not self._is_completed(student_submissions.get(str(assignment.get("id"))))
             ]
 
+            # Indicadores exclusivos de la semana que se está analizando.
+            # Se mantienen separados de los acumulados para que el Excel de derivación
+            # pueda mostrar cuántas actividades de ESA semana siguen pendientes, sin
+            # arrastrar pendientes de semanas anteriores ni contar actividades futuras.
+            current_week_assignments = [
+                assignment
+                for assignment in included_assignments
+                if int(assignment_plan.get(self._assignment_id(assignment), {}).get("week_number") or -1) == int(week)
+            ]
+            current_week_completed_items = [
+                assignment
+                for assignment in current_week_assignments
+                if self._is_completed(student_submissions.get(str(assignment.get("id"))))
+            ]
+            current_week_pending_items = [
+                assignment
+                for assignment in current_week_assignments
+                if not self._is_completed(student_submissions.get(str(assignment.get("id"))))
+            ]
+
             late_count = 0
             early_count = 0
             assignment_rows: list[dict[str, Any]] = []
@@ -693,6 +713,12 @@ class AnalysisService:
                 "completed_expected": len(completed_expected_items),
                 "completed_total_in_plan": completed_total_in_plan,
                 "pending_count": len(pending_items),
+                "current_week_expected": len(current_week_assignments),
+                "current_week_completed": len(current_week_completed_items),
+                "current_week_pending_count": len(current_week_pending_items),
+                "current_week_pending_assignments": [
+                    str(item.get("name") or "Actividad sin nombre") for item in current_week_pending_items
+                ],
                 "late_count": late_count,
                 "early_count": early_count,
                 "completion_percentage": round(completion_percentage, 2),
