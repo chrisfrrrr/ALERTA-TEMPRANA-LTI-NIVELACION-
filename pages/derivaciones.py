@@ -23,12 +23,12 @@ if df is None or df.empty:
     empty_state("No hay casos disponibles", "Ejecute un análisis semanal antes de preparar derivaciones.")
     st.stop()
 
-eligible = df[df["overall_risk"].isin(["Moderado", "Alto"])].copy()
+eligible = df[df["overall_risk"].isin(["Bajo", "Moderado", "Alto"])].copy()
 if eligible.empty:
-    st.success("El corte actual no contiene estudiantes con riesgo moderado o alto.")
+    st.success("El corte actual no contiene estudiantes con nivel de riesgo disponible para derivación.")
     st.stop()
 
-risk_filter = st.multiselect("Nivel de riesgo", ["Moderado", "Alto"], default=["Moderado", "Alto"])
+risk_filter = st.multiselect("Nivel de riesgo", ["Bajo", "Moderado", "Alto"], default=["Bajo", "Moderado", "Alto"])
 advisors = sorted(eligible["asesor_bienestar"].fillna("Sin asignar").unique().tolist())
 advisor_filter = st.multiselect("Asesor de bienestar", advisors, default=advisors)
 filtered = eligible[eligible["overall_risk"].isin(risk_filter)] if risk_filter else eligible.copy()

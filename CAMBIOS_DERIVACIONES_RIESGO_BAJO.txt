@@ -1,0 +1,6 @@
+CAMBIO: DERIVACIONES PARA RIESGO BAJO
+
+- La página Derivaciones ahora incluye estudiantes clasificados con riesgo Bajo, Moderado y Alto.
+- El filtro Nivel de riesgo muestra y selecciona por defecto los tres niveles.
+- Desde el expediente individual también se habilita Preparar derivación para estudiantes de riesgo Bajo.
+- No se modifica el motor de riesgo ni la lógica de cálculo de pendientes, avance o calificaciones.

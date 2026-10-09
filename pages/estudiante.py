@@ -160,6 +160,6 @@ with interventions_tab:
             st.session_state.preselected_message_students = [student_id]
             st.switch_page("pages/mensajeria.py")
     with a2:
-        if row.get("overall_risk") in {"Moderado", "Alto"} and st.button("Preparar derivación", width="stretch"):
+        if row.get("overall_risk") in {"Bajo", "Moderado", "Alto"} and st.button("Preparar derivación", width="stretch"):
             st.session_state.preselected_referral_students = [student_id]
             st.switch_page("pages/derivaciones.py")
