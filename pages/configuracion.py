@@ -10,6 +10,7 @@ from services.database_service import DatabaseError
 from services.auth_service import current_actor, load_oauth_config
 from services.runtime import get_database
 from utils.data_cleaning import load_wellbeing_csv
+from services.grade_report_service import combine_scholarships
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -109,6 +110,25 @@ with database_tab:
         except ValueError as exc:
             st.error(str(exc))
 
+
+    st.divider()
+    st.markdown("#### Catálogo de becas por cohorte")
+    st.caption("Cargue uno o ambos Excel institucionales de becas (o CSV). El catálogo se conserva únicamente en esta sesión: no se sube a GitHub ni se guarda en Supabase. No se extraen DPI ni fechas de nacimiento.")
+    scholarship_upload = st.file_uploader(
+        "Listados de becas", type=["xlsx", "csv"], accept_multiple_files=True, key="becas_upload_nivelacion"
+    )
+    if scholarship_upload:
+        try:
+            scholarships = combine_scholarships(scholarship_upload)
+            st.session_state.scholarships_df = scholarships
+            st.success(f"Catálogo activo: {len(scholarships)} registros únicos de los archivos cargados.")
+        except (ValueError, OSError, ImportError) as exc:
+            st.error(f"Error al importar las becas: {exc}")
+    if st.session_state.get("scholarships_df") is not None:
+        st.info(f"Registros de becas en esta sesión: {len(st.session_state.scholarships_df)}")
+        if st.button("Eliminar catálogo de becas de esta sesión"):
+            st.session_state.scholarships_df = None
+            st.rerun()
 
     analysis_df = st.session_state.get("analysis_df")
     if analysis_df is not None and not analysis_df.empty and "wellbeing_match_method" in analysis_df.columns:

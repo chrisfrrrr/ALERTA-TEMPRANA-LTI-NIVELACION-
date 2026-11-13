@@ -268,6 +268,17 @@ if st.button("Ejecutar análisis semanal", type="primary", width="stretch"):
                 detail["student"]["asesor_bienestar"] = advisor
                 detail["student"]["advisor_name"] = advisor
 
+        # Reporte adicional: conserva el último análisis de cada curso/sección en sesión.
+        # No modifica el corte operativo ni el historial original.
+        snapshots = st.session_state.setdefault("course_report_snapshots", {})
+        snapshot_key = f"{selected_course['id']}::{section_id or 'todas'}"
+        snapshots[snapshot_key] = {
+            "dataframe": dataframe.copy(),
+            "details": details,
+            "label": f"{selected_course.get('name') or selected_course.get('course_code')} · {section_name} · semana {week}",
+            "mode": "demo" if demo_mode else "canvas",
+        }
+
         st.session_state.analysis_df = dataframe
         st.session_state.analysis_details = details
         st.session_state.analysis_diagnostics = diagnostics

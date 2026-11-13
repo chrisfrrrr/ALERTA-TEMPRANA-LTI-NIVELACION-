@@ -5,6 +5,7 @@ import streamlit as st
 
 from components.charts import advisor_workload, progress_by_student, risk_distribution, top_risk_causes
 from components.ui import dataframe_for_display, empty_state, metric_card, page_header
+from services.grade_report_service import build_excel, build_report_tables
 
 
 page_header(
@@ -97,3 +98,46 @@ with action3:
     if selected_label and st.button("Ver dashboard individual", type="primary", width="stretch"):
         st.session_state.selected_student_id = str(student_options[selected_label])
         st.switch_page("pages/estudiante.py")
+
+
+st.divider()
+st.subheader("Reporte general de calificaciones y becas")
+st.caption(
+    "Incluye los últimos cortes realizados durante esta sesión para los cursos y secciones elegidos. "
+    "La nota corresponde a la calificación actual registrada en el corte, no necesariamente a la nota final. "
+    "Cargue los listados de becas desde Configuración."
+)
+snapshots = st.session_state.get("course_report_snapshots", {})
+mode = "demo" if st.session_state.get("demo_mode") else "canvas"
+available_keys = [key for key, snap in snapshots.items() if snap.get("mode") == mode]
+if available_keys:
+    selected_keys = st.multiselect(
+        "Cursos y secciones a incluir en el Excel",
+        options=available_keys,
+        default=available_keys,
+        format_func=lambda key: snapshots[key]["label"],
+        key="lti_grade_report_courses",
+    )
+    if selected_keys:
+        try:
+            summary, activities, pending = build_report_tables(
+                snapshots, selected_keys, st.session_state.get("scholarships_df")
+            )
+            a, b, c = st.columns(3)
+            a.metric("Inscripciones", len(summary))
+            b.metric("Cursos", summary["ID del curso"].nunique())
+            c.metric("Becas por verificar", len(pending))
+            if st.session_state.get("scholarships_df") is None:
+                st.warning("No hay catálogo de becas cargado; los estados se mostrarán como Por verificar.")
+            st.dataframe(summary, width="stretch", hide_index=True, height=300)
+            st.download_button(
+                "Descargar Excel general de notas y becas",
+                data=build_excel(summary, activities, pending),
+                file_name="AVE_nivelacion_notas_becas.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary", width="stretch",
+            )
+        except (ValueError, KeyError) as exc:
+            st.error(f"No fue posible preparar el Excel: {exc}")
+else:
+    st.info("Ejecute el análisis de uno o más cursos desde Conexión y análisis para habilitar este descargable.")
